@@ -60,4 +60,39 @@ edx <- rbind(edx, removed)
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 #############################################################
+# Testing the predictions of a Random Forest algorithm
+#############################################################
+
+library(randomForest)
+library(Rborist)
+
+
+n <- 1000
+sigma <- 0.25
+x <- rnorm(n, 0, 1)  # todo change
+y <- 0.75 * x + rnorm(n, 0, sigma)   # todo change
+dat <- data.frame(x = x, y = y)
+set.seed(1)
+fit <- train(y ~ ., data = dat, method = "Rborist", tuneGrid = data.frame(predFixed = 1, minNode = seq(25, 100, 25)))
+fit
+
+dat %>% 
+  mutate(y_hat = predict(fit)) %>% 
+  ggplot() +
+  geom_point(aes(x, y)) +
+  geom_step(aes(x, y_hat), col = 2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
