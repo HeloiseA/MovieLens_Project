@@ -1,3 +1,10 @@
+# Clear plots
+if(!is.null(dev.list())) dev.off()
+# Clear console
+cat("\014") 
+# Clean workspace
+rm(list=ls())
+
 #############################################################
 # HarvardX: PH125.9 - Data Science: Capstone
 #############################################################
@@ -60,4 +67,69 @@ edx <- rbind(edx, removed)
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 #############################################################
+# Create RMSE function
+#############################################################
+
+RMSE <- function(validation, y_hat){
+  sqrt(mean((validation - y_hat)^2))
+}
+# Where y_hat is the vector of the predicted ratings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# First attempt: subset dataset: fail
+cols <- c("genres")
+edx[cols] <- lapply(edx[cols], factor)
+validation[cols] <- lapply(validation[cols], factor)
+
+# Create a smaller subsets of edx and validation to reduce calculation time
+mini_edx <- edx[sample(nrow(edx), 1000), ]
+mini_validation <- validation[sample(nrow(validation), 100), ]
+
+#rm(edx, validation)
+
+fit <- lm(rating ~ userId + movieId + genres, data = mini_edx)
+
+y_hat <- predict(fit, validation)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
