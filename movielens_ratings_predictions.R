@@ -75,31 +75,6 @@ RMSE <- function(validation, y_hat){
 }
 # Where y_hat is the vector of the predicted ratings
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # First attempt: subset dataset: fail
 cols <- c("genres")
 edx[cols] <- lapply(edx[cols], factor)
@@ -114,6 +89,7 @@ mini_validation <- validation[sample(nrow(validation), 100), ]
 fit <- lm(rating ~ userId + movieId + genres, data = mini_edx)
 
 y_hat <- predict(fit, validation)
+
 
 
 
