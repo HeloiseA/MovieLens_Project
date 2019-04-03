@@ -1,16 +1,9 @@
-# Clear plots
-if(!is.null(dev.list())) dev.off()
-# Clear console
-cat("\014") 
-# Clean workspace
-rm(list=ls())
-
 #############################################################
 # HarvardX: PH125.9 - Data Science: Capstone
 #############################################################
 #
-# The following script uses a subsample of the MovieLens datasets and tests various
-# machine learning algorithms in order to predict movie ratings from users.
+# The following script uses a subsample of the MovieLens datasets and tests
+# different models in order to predict movie ratings from users.
 # This code was run on Windows 8 OS with RStudio Version 1.1.447.
 #
 # The following section was given by the course instructors.
