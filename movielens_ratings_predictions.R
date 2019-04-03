@@ -70,33 +70,61 @@ rm(dl, ratings, movies, test_index, temp, movielens, removed)
 # Create RMSE function
 #############################################################
 
+# Where y_hat is the vector of the predicted ratings
+
 RMSE <- function(validation, y_hat){
   sqrt(mean((validation - y_hat)^2))
 }
-# Where y_hat is the vector of the predicted ratings
 
-# First attempt: subset dataset: fail
-cols <- c("genres")
-edx[cols] <- lapply(edx[cols], factor)
-validation[cols] <- lapply(validation[cols], factor)
+#############################################################
+# Create a first model for the predicted ratings
+#############################################################
 
-# Create a smaller subsets of edx and validation to reduce calculation time
-mini_edx <- edx[sample(nrow(edx), 1000), ]
-mini_validation <- validation[sample(nrow(validation), 100), ]
+# All predicted ratings are the average rating of the edx training set
 
-#rm(edx, validation)
+y_hat1 <- mean(edx$rating)
 
-fit <- lm(rating ~ userId + movieId + genres, data = mini_edx)
+rmse1 <- RMSE(validation$rating, y_hat1)
+cat("RMSE from Model 1: ", rmse1)
 
-y_hat <- predict(fit, validation)
+#############################################################
+# Create a second model for the predicted ratings
+#############################################################
 
+# Add a term to account for the average rating of each movie
 
+mu <- mean(edx$rating)
 
+movie_avgs <- edx %>%
+  group_by(movieId) %>%
+  summarize(b_i = mean(rating - mu))
 
+y_hat2 <- validation %>%
+  left_join(movie_avgs, by = "movieId") %>%
+  mutate(pred = mu + b_i) %>%
+  pull(pred)
 
+rmse2 <- RMSE(validation$rating, y_hat2)
+cat("RMSE from Model 2: ", rmse2)
 
+#############################################################
+# Create a third model for the predicted ratings
+#############################################################
 
+# Add another term to account for the average rating given by a user
 
+user_avgs <- edx %>% left_join(movie_avgs, by = "movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - mu - b_i))
+
+y_hat3 <- validation %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  mutate(pred = mu + b_i + b_u) %>%
+  pull(pred)
+
+rmse3 <- RMSE(validation$rating, y_hat3)
+cat("RMSE from Model 3: ", rmse3)
 
 
 
