@@ -6,6 +6,8 @@
 # different models in order to predict movie ratings from users.
 # This code was run on Windows 8 OS with RStudio Version 1.1.447.
 #
+# Find this project online at: https://github.com/HeloiseA/MovieLens_Project
+#
 # The following section was given by the course instructors.
 #
 #############################################################
@@ -182,5 +184,6 @@ p + theme_economist() +
 
 # Display minimum RMSE value and associated lambda parameter
 
-cat("Minimum RMSE from model 3 with regularized movie effect parameter: ", min(rmses))
+final_rmse <- min(rmses)
+cat("Minimum RMSE from model 3 with regularized movie effect parameter: ", final_rmse)
 cat("RMSE obtained with lambda = ", lambdas[which.min(rmses)])
