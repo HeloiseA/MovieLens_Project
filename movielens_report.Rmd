@@ -28,3 +28,33 @@ plot(pressure)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+# HarvardX: PH125.9 - Data Science: Capstone
+
+This report presents the methodology and results used as part of HarvardX course PH125.9 - Data Science: Capstone.
+
+Find this project online at: https://github.com/HeloiseA/MovieLens_Project
+
+## Introduction
+
+Recommandation systems are what allow companies like Netflix to suggest movies to their audience based on users' past activities. For example, a person who has watched and highly rated many romantic comedies can expect to see this genre of movie appearing in their suggested "watch later" list. Using data science, it is possible to approximate the rating a user might give to a certain movie, and thus help deciding wether to suggest it to them or not.
+
+For this project, a subset of the MovieLens dataset, the MovieLens 10M dataset, will be used to predict the ratings a sample of users would give to certain movies. This dataset may be found at: https://grouplens.org/datasets/movielens/10m/.
+
+After exploring the dataset and possible techniques, a method was chosen to generate ratings predictions. This method rests upon the minimization of a Residual Mean Squared Error (RMSE) loss function by a model composed of various parameters. An iterative approach was taken to add effect parameters and a regularization parameter to the model. The following sections detail this analysis and the results it produced.
+
+
+## Methods
+section that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach
+
+
+
+## Results
+
+
+## Conclusion
+
+In conclusion, the goal of this report was to present the methodology and results behind a model for predictions of movie ratings from a subset of the MovieLens dataset.
