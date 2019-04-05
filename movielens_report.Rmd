@@ -1,36 +1,174 @@
 ---
-title: "movielens_report"
+title: "Capstone Project Report"
 author: "Heloise Auger"
-date: "3 avril 2019"
+date: "April 3rd 2019"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+#############################################################
+# Create edx set, validation set, and submission file
+#############################################################
+
+# Note: this process could take a couple of minutes
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+
+library(dplyr)
+library(tidyverse)
+library(caret)
+
+# MovieLens 10M dataset:
+# https://grouplens.org/datasets/movielens/10m/
+# http://files.grouplens.org/datasets/movielens/ml-10m.zip
+
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+
+ratings <- read.table(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                      col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+colnames(movies) <- c("movieId", "title", "genres")
+movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
+                                           title = as.character(title),
+                                           genres = as.character(genres))
+
+movielens <- left_join(ratings, movies, by = "movieId")
+
+# Validation set will be 10% of MovieLens data
+
+set.seed(1)
+test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+# Make sure userId and movieId in validation set are also in edx set
+
+validation <- temp %>% 
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from validation set back into edx set
+
+removed <- anti_join(temp, validation)
+edx <- rbind(edx, removed)
+
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+
+#############################################################
+# Create RMSE function
+#############################################################
+
+# Where y_hat is the vector of the predicted ratings
+
+RMSE <- function(validation, y_hat){
+  sqrt(mean((validation - y_hat)^2))
+}
+
+#############################################################
+# Create a first model for the predicted ratings
+#############################################################
+
+# All predicted ratings in y_hat1 are the average rating of the edx training set.
+
+y_hat1 <- mean(edx$rating)
+
+# Compute RMSE for model 1
+
+rmse1 <- RMSE(validation$rating, y_hat1)
+cat("RMSE from Model 1: ", rmse1)
+
+#############################################################
+# Create a second model for the predicted ratings
+#############################################################
+
+# Here, we add a parameter to account for the average rating of each movie
+# Our average rating from model 1 is renamed "mu"
+
+mu <- mean(edx$rating)
+
+# The movie_avgs data frame contains the movieIds and their parameter b_i,
+# where b_i is the mean difference of the average rating mu from each movie rating
+
+movie_avgs <- edx %>%
+  group_by(movieId) %>%
+  summarize(b_i = mean(rating - mu))
+
+# The predicted ratings in y_hat2 are based on the mean rating and movie-dependant parameters b_i
+
+y_hat2 <- validation %>%
+  left_join(movie_avgs, by = "movieId") %>%
+  mutate(pred = mu + b_i) %>%
+  pull(pred)
+
+# Compute RMSE for model 2
+
+rmse2 <- RMSE(validation$rating, y_hat2)
+cat("RMSE from Model 2: ", rmse2)
+
+#############################################################
+# Create a third model for the predicted ratings
+#############################################################
+
+# Another parameter is added to account for the average rating given by a user
+
+# The user_avgs data frame contains the movieIds and their parameter b_u,
+# the mean difference of the average rating mu and movie parameter b_i from each user rating
+
+user_avgs <- edx %>% left_join(movie_avgs, by = "movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - mu - b_i))
+
+# The predicted ratings in y_hat3 are based on the mean rating, movie-dependant parameters b_i,
+# and user-dependant parameters b_u
+
+y_hat3 <- validation %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  mutate(pred = mu + b_i + b_u) %>%
+  pull(pred)
+
+# Compute RMSE for model 3
+
+rmse3 <- RMSE(validation$rating, y_hat3)
+cat("RMSE from Model 3: ", rmse3)
+
+#############################################################
+# Use Regularization principles to improve on the third model
+#############################################################
+
+# Here, we use regularization to take into account the number of ratings per movie
+# to diminish the b_i effect of movies with a small number of ratings
+
+# Create a grid for the tuning parameter lambda
+
+lambdas <- seq(0, 10, 0.25)
+
+# Create a data frame containing the movieId, its sum of all b_i,
+# and its number of ratings
+
+sums_movie <- edx %>%
+  group_by(movieId) %>%
+  summarize(s = sum(rating - mu), n_i = n())
+
+# Use sapply to test all values of lambdas for the regularization of the movie effect parameter.
+# Compute all RMSEs for model 3 with a regularized parameter b_i
+
+rmses <- sapply(lambdas, function(l){
+  y_hat4 <- validation %>%
+    left_join(sums_movie, by='movieId') %>%
+    left_join(user_avgs, by='userId') %>%
+    mutate(b_i = s/(n_i+l)) %>%
+    mutate(pred = mu + b_i + b_u) %>%
+    pull(pred)
+  return(RMSE(validation$rating, y_hat4))
+})
+final_rmse <- min(rmses)
 ```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-
-
 
 # HarvardX: PH125.9 - Data Science: Capstone
 
@@ -48,13 +186,196 @@ After exploring the dataset and possible techniques, a method was chosen to gene
 
 
 ## Methods
-section that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach
+
+The road to a minimized RMSE value was not a linear one. In this section, we present the exploration and chosen methods used in order to optimize the predictions of movie ratings.
+
+### Creating the training and testing datasets
+
+The course instructors provided a segment of code in order to download and clean the MovieLens 10M dataset. Additionally, this code separated the dataset into two subsets: the ```edx``` dataset, for training, and the ```validation``` dataset, for testing. 
+
+### Creating the RMSE function
+
+The evaluation of the predictions was instructed to be made via an RMSE loss function, defined as:
+
+$\ RMSE = \sqrt{\frac{1}{N}\sum\limits_{u,i}\ (y_{u,i} - \hat{y}_{u,i})^2}$
+
+with $\hat{y}_{u,i}$ and $y_{u,i}$ being the predicted and actual ratings, and *N*, the number of possible combinations between user *u* and movie *i*.
+
+This function evaluates the square root of the mean of the differences between true and predicted ratings and is defined in the code in order to avoid repeating it for every new model.
+
+```
+RMSE <- function(validation, y_hat){
+  sqrt(mean((validation - y_hat)^2))
+}
+```
+
+The variable ```validation``` will contain the true ratings from ```validation$rating```, and the variable ```y_hat``` will contain our corresponding predictions.
+
+### Data exploration and visualization
+
+In order to begin analyzing the data, it is capital to know what format our datasets are in. This section presents steps that do not appear in the final R script, but were integral to the completion of this project. To begin, the following code was used to glance into the training set.
+
+```{r, echo=TRUE}
+nrow(edx)
+head(edx)
+```
+
+The number of rows in the dataset as well as its columns' name are now known. The same step was applied for the ```validation``` set. After some exploration, it does not seem like the datasets require anymore wrangling to be tidy and ready for analysis. With this insight, a first approach to ratings prediction was attempted.
+
+A linear model was defined which took into account user IDs and movie IDs, converted to factors. The fit returned by the ```lm``` function was expected to be used within the ```predict``` function in order to generate the ratings predictions.
+
+```
+cols <- c("userId", "movieId")
+edx[cols] <- lapply(edx[cols], factor)
+validation[cols] <- lapply(validation[cols], factor)
+fit <- lm(rating ~ userId + movieId, data = edx)
+y_hat <- predict(fit, validation)
+```
+
+This approach failed due to the lack of RAM on this student's computer. An attempt was made to use a subset of the original datasets in order to run the code.
+
+```
+mini_edx <- edx[sample(nrow(edx), 10000), ]
+mini_validation <- validation[sample(nrow(validation), 1000), ]
+```
+
+But this approach could not be completed for the same reasons.
+
+### Model 1: the simplest recommandation system
+
+From the exploration of the data, it appears that in order to retrieve movie ratings predictions from the voluminous MovieLens 10M dataset, an approach that is less memory-hungry is required.
+
+Knowing this, the first model was designed to be exceedingly simple: the ```validation``` ratings were approximated by the mean of all ratings in ```edx```, which translates to this formula:
+
+$\ Y_{u,i} = \mu + \varepsilon_{u,i}$
+
+Where $\mu$ is the average of all ratings in ```edx``` and $\varepsilon_{u,i}$ corresponds to the independent errors sampled from the same distribution. Knowing these errors are centered around zero, the previous equation translates to the following code.
+
+```
+y_hat1 <- mean(edx$rating)
+rmse1 <- RMSE(validation$rating, y_hat1)
+```
+
+### Model 2: adding a movie effect
+
+Model 2 builds upon model 1 by adding a parameter accounting for the ratings of indivual movies. This term, centered around zero, increases or decreases the predicted rating based on the mean of the differences between the average rating and a movie's ratings. The model becomes:
+
+$\ Y_{u,i} = \mu + b_i + \varepsilon_{u,i}$
+
+where $b_i$ is the new movie effect parameter. In the following code, the data frame ```movie_avgs``` carries the movie IDs and their $b_i$ parameters, to be included in the calculation of new predictions.
+
+```
+mu <- mean(edx$rating)
+
+movie_avgs <- edx %>%
+  group_by(movieId) %>%
+  summarize(b_i = mean(rating - mu))
+
+y_hat2 <- validation %>%
+  left_join(movie_avgs, by = "movieId") %>%
+  mutate(pred = mu + b_i) %>%
+  pull(pred)
+
+rmse2 <- RMSE(validation$rating, y_hat2)
+```
+
+### Model 3: adding a user effect
+
+Some movie watchers are more critical than others. A user-dependant term is thus added to the previous model. The process is very similar to that of the movie effect. The new term is again centered around zero, and increases or decreases the prediction based on the mean difference of the average rating mu and movie parameter $b_i$ from each user's rating. The model's equation becomes:
+
+$\ Y_{u,i} = \mu + b_i + b_u + \varepsilon_{u,i}$
+
+where $b_u$ is the user effect parameter. The following code implements this model. Along with ```movie_avgs``` containing the $b_i$ parameters, we now have ```user_avgs``` which contains the $b_u$ parameters.
+
+```
+user_avgs <- edx %>% left_join(movie_avgs, by = "movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - mu - b_i))
+
+y_hat3 <- validation %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  mutate(pred = mu + b_i + b_u) %>%
+  pull(pred)
+
+rmse3 <- RMSE(validation$rating, y_hat3)
+```
+
+### Using regularization to improve on Model 3
+
+Results show that the third model performed adequately, but it is obviously not perfect. Our system accounts for every movie, meaning it is in part based on the ratings of obscure movies with few ratings, which introduces uncertainty. How can we modelize the popularity of a movie within our system?
+
+In order to reduce the unpopular movies' effect towards zero, regularization principles will be applied to the third model. A penalty, driven by the number of ratings for a movie and regularization parameter lambda, is added to the model. Instead of $b_i$, the regularized movie effect is defined as:
+
+$\hat{b_i}(\lambda) = \frac{1}{\lambda + n_i} \sum\limits_{u=1}^{n_i}(Y_{u,i} - \hat{\mu})$
+
+where $n_i$ is the number of ratings per movie. In addition, parameter lambda may be optimized by testing an array of values and keeping the one which minimizes the RMSE. In the code below, the ```sapply``` function returns a vector of RMSE values in order to determine the optimal value of lambda.
+
+```
+lambdas <- seq(0, 10, 0.25)
+
+sums_movie <- edx %>%
+  group_by(movieId) %>%
+  summarize(s = sum(rating - mu), n_i = n())
+
+rmses <- sapply(lambdas, function(l){
+  y_hat4 <- validation %>%
+    left_join(sums_movie, by='movieId') %>%
+    left_join(user_avgs, by='userId') %>%
+    mutate(b_i = s/(n_i+l)) %>%
+    mutate(pred = mu + b_i + b_u) %>%
+    pull(pred)
+  return(RMSE(validation$rating, y_hat4))
+})
+```
+
+To visualize the optimal value for lambda, a plot of its values against their corresponding RMSE was produced.
 
 
+```{r qplot, fig.width=6, fig.height=4, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(ggthemes)
+library(grid)
+
+p <- qplot(lambdas, rmses, main="Values of RMSE vs. parameter Lambda",
+           xlab="Lambda", ylab="RMSE")
+p + theme_economist() +
+  theme(panel.grid.major = element_line(color = "white", size = 0.5),
+        panel.grid.minor = element_line(color = "white", size = 0.5))
+```
+
+Thus, we can see that the RMSE is minimized for a value of lambda of:
+```{r, echo=FALSE}
+lambdas[which.min(rmses)]
+```
 
 ## Results
+
+In this section, the RMSE returned by all of the previously defined models are presented. The optimal value of regularization parameter lambda is also included.
+
+```{r, echo=TRUE}
+cat("RMSE from Model 1: ", rmse1)
+cat("RMSE from Model 2: ", rmse2)
+cat("RMSE from Model 3: ", rmse3)
+cat("Minimum RMSE from model 3 with regularized movie effect parameter: ", final_rmse)
+```
+
+As for parameter lambda, a value of: 
+```{r, echo=FALSE}
+lambdas[which.min(rmses)]
+```
+yielded a minimized RMSE.
+
+As expected, the RMSE decreased as the model grew more complex. In future works, other parameters could be added to this system; one based on movie genre comes to mind.
 
 
 ## Conclusion
 
-In conclusion, the goal of this report was to present the methodology and results behind a model for predictions of movie ratings from a subset of the MovieLens dataset.
+This report aimed to present the process of completing the MovieLens Capstone Project as part of course PH125.9. The goal of this project was to present a method to minimize an RMSE loss function of the true and predicted ratings of a subset of the MovieLens dataset.
+
+The MovieLens 10M dataset was downloaded, cleaned, and separated into training and testing subsets. The RMSE loss function was defined. After some exploration, three models resulting in decreasing RMSE were presented. Finally, a variation on the third model introducing a regularization parameter returned a minimized RMSE value.
+
+
+
+
+
